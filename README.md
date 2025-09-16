@@ -234,14 +234,20 @@ student-event-manager/
 ```
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
-EMAIL_ADDRESS=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-SECRET_KEY=your-production-secret-key
+EMAIL_ADDRESS=deepalirakshe24@gmail.com
+EMAIL_PASSWORD=fjaygniasvajhqsb
+SECRET_KEY=your-production-secret-key-change-this
+ADMIN_PASSWORD=admin123
 EVENT_NAME=Cognizant Pre-Placement Talk - Batch 2026
 EVENT_DATE=18th September 2025
 EVENT_LOCATION=Main Auditorium
 FLASK_ENV=production
 ```
+
+**⚠️ IMPORTANT**:
+- Do NOT use quotes around values in Railway dashboard
+- `EMAIL_PASSWORD` is your Gmail App Password (16 characters)
+- Change `SECRET_KEY` to a secure random string for production
 
 📖 **See [RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md) for detailed instructions**
 

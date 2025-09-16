@@ -1,0 +1,33 @@
+RAILWAY ENVIRONMENT VARIABLES
+================================
+
+Copy and paste these into Railway Dashboard > Settings > Environment Variables:
+
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+EMAIL_ADDRESS=deepalirakshe24@gmail.com
+EMAIL_PASSWORD=fjaygniasvajhqsb
+SECRET_KEY=your-secret-key-here-change-in-production
+ADMIN_PASSWORD=admin123
+EVENT_NAME=Cognizant Pre-Placement Talk - Batch 2026
+EVENT_DATE=18th September 2025
+EVENT_LOCATION=Main Auditorium
+FLASK_ENV=production
+
+INSTRUCTIONS:
+1. Go to Railway Dashboard
+2. Select your project
+3. Go to Settings > Environment Variables
+4. Add each variable one by one:
+   - Variable Name: SMTP_SERVER
+   - Variable Value: smtp.gmail.com
+   - Click "Add"
+   
+5. Repeat for all variables above
+6. Deploy your service
+
+IMPORTANT NOTES:
+- Do NOT use quotes around values in Railway dashboard
+- Railway automatically handles special characters
+- Make sure EMAIL_PASSWORD is your Gmail App Password (not regular password)
+- Change SECRET_KEY to a secure random string in production
