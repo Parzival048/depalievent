@@ -66,13 +66,30 @@ async function apiRequest(url, options = {}) {
             },
             ...options
         });
-        
+
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // If not JSON, likely an HTML redirect (authentication error)
+            if (response.status === 401 || response.url.includes('/admin/login')) {
+                window.location.href = '/admin/login';
+                return;
+            }
+            throw new Error('Server returned non-JSON response');
+        }
+
         const data = await response.json();
-        
+
+        // Handle authentication errors
+        if (response.status === 401 && data.redirect) {
+            window.location.href = data.redirect;
+            return;
+        }
+
         if (!response.ok) {
             throw new Error(data.error || 'Request failed');
         }
-        
+
         return data;
     } catch (error) {
         console.error('API Request Error:', error);
@@ -102,6 +119,19 @@ async function uploadFile(url, fileInput, progressCallback = null) {
                     resolve(response);
                 } catch (error) {
                     reject(new Error('Invalid response format'));
+                }
+            } else if (xhr.status === 401) {
+                // Authentication error - check if response is JSON
+                try {
+                    const error = JSON.parse(xhr.responseText);
+                    if (error.redirect) {
+                        window.location.href = error.redirect;
+                        return;
+                    }
+                    reject(new Error(error.error || 'Authentication required'));
+                } catch {
+                    // Not JSON, likely HTML redirect
+                    window.location.href = '/admin/login';
                 }
             } else {
                 try {

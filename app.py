@@ -35,12 +35,21 @@ def get_ist_time():
     """Get current time in Indian Standard Time"""
     return datetime.now(IST)
 
-# Simple authentication decorator
+# Simple authentication decorator for web pages
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('admin_authenticated'):
             return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Authentication decorator for API endpoints (returns JSON instead of redirect)
+def api_admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_authenticated'):
+            return jsonify({'error': 'Authentication required', 'redirect': '/admin/login'}), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -211,6 +220,7 @@ def validate_qr_url(qr_hash):
 
 # API Routes
 @app.route('/api/upload_students', methods=['POST'])
+@api_admin_required
 def upload_students():
     try:
         if 'file' not in request.files:
@@ -271,6 +281,7 @@ def upload_students():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/generate_qr_codes', methods=['POST'])
+@api_admin_required
 def generate_qr_codes():
     try:
         conn = sqlite3.connect('student_event.db')
@@ -330,6 +341,7 @@ def generate_qr_codes():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/send_emails', methods=['POST'])
+@api_admin_required
 def send_emails():
     try:
         # Email configuration from environment
@@ -526,6 +538,7 @@ def health_check():
     })
 
 @app.route('/api/dashboard_stats', methods=['GET'])
+@api_admin_required
 def dashboard_stats():
     try:
         # Initialize database if it doesn't exist
@@ -597,6 +610,7 @@ def dashboard_stats():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/export_data', methods=['GET'])
+@api_admin_required
 def export_data():
     try:
         conn = sqlite3.connect('student_event.db')
@@ -632,6 +646,7 @@ def export_data():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/clear_all_data', methods=['POST'])
+@api_admin_required
 def clear_all_data():
     try:
         data = request.get_json()
