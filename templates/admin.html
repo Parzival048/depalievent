@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Student Event Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-cog me-2"></i>Admin Panel
+        </h1>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Upload Students Card -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload Student Data
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="studentFile" class="form-label">Select Excel/CSV File</label>
+                        <input type="file" class="form-control" id="studentFile" accept=".xlsx,.xls,.csv" required>
+                        <div class="form-text">
+                            Required columns: Student Name, PRN Number, Email Address
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <i class="fas fa-upload me-1"></i>Upload Students
+                    </button>
+                </form>
+                <div id="uploadProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate QR Codes Card -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-qrcode me-2"></i>Generate QR Codes
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Generate secure QR codes for all uploaded students.</p>
+                <button type="button" class="btn btn-success" id="generateQRBtn">
+                    <i class="fas fa-qrcode me-1"></i>Generate QR Codes
+                </button>
+                <div id="qrProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Emails Card -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-envelope me-2"></i>Send Emails
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Send QR codes to students via email.</p>
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Make sure to configure email settings in .env file first!
+                </div>
+                <button type="button" class="btn btn-info" id="sendEmailsBtn">
+                    <i class="fas fa-envelope me-1"></i>Send Emails
+                </button>
+                <div id="emailProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status Card -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="systemStatus">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-warning btn-sm" id="refreshStatusBtn">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Data Card -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-trash-alt me-2"></i>Clear All Data
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-danger">
+                    <strong>Warning:</strong> This will permanently delete all students, scans, and QR codes.
+                </p>
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    This action cannot be undone!
+                </div>
+                <button type="button" class="btn btn-danger" id="clearDataBtn" data-bs-toggle="modal" data-bs-target="#clearDataModal">
+                    <i class="fas fa-trash-alt me-1"></i>Clear All Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recentActivity">
+                    <p class="text-muted">No recent activity</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Configuration Modal -->
+<div class="modal fade" id="emailConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Email Configuration Required</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>To send emails, you need to configure the following in your <code>.env</code> file:</p>
+                <pre class="bg-light p-3 rounded">
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+EMAIL_ADDRESS=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EVENT_NAME=Your Event Name
+EVENT_DATE=2024-01-15
+EVENT_LOCATION=Event Location
+                </pre>
+                <div class="alert alert-info">
+                    <strong>Note:</strong> For Gmail, use an App Password instead of your regular password.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Data Confirmation Modal -->
+<div class="modal fade" id="clearDataModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Data Deletion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger" role="alert">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-warning me-1"></i>DANGER ZONE
+                    </h6>
+                    <p>This action will permanently delete:</p>
+                    <ul>
+                        <li>All student records</li>
+                        <li>All scan records</li>
+                        <li>All QR code files</li>
+                        <li>All uploaded files</li>
+                    </ul>
+                    <hr>
+                    <p class="mb-0"><strong>This action cannot be undone!</strong></p>
+                </div>
+
+                <form id="clearDataForm">
+                    <div class="mb-3">
+                        <label for="confirmationInput" class="form-label">
+                            Type <code>CLEAR_ALL_DATA</code> to confirm:
+                        </label>
+                        <input type="text" class="form-control" id="confirmationInput" placeholder="CLEAR_ALL_DATA" required>
+                        <div class="form-text text-danger">
+                            This confirmation is required to prevent accidental data loss.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmClearBtn" disabled>
+                    <i class="fas fa-trash-alt me-1"></i>Delete All Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}
