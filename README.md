@@ -1,3 +1,4 @@
+
 # Student Event Management System
 
 A complete web application for managing student events with QR code generation, email distribution, and real-time attendance tracking.
@@ -295,3 +296,4 @@ For issues or questions:
 - **Secure & Reliable**: Cryptographically secure with duplicate prevention
 - **Real-time Insights**: Live dashboard for immediate event monitoring
 - **Professional Quality**: Production-ready with comprehensive error handling
+
