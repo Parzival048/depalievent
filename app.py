@@ -58,48 +58,57 @@ os.makedirs('templates', exist_ok=True)
 
 # Database initialization
 def init_db():
-    conn = sqlite3.connect('student_event.db')
-    cursor = conn.cursor()
-    
-    # Students table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            prn_number TEXT UNIQUE NOT NULL,
-            email TEXT NOT NULL,
-            qr_code_path TEXT,
-            qr_hash TEXT UNIQUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            email_sent BOOLEAN DEFAULT FALSE
-        )
-    ''')
-    
-    # Scans table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS scans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id INTEGER,
-            scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            scanner_info TEXT,
-            FOREIGN KEY (student_id) REFERENCES students (id)
-        )
-    ''')
-    
-    # Events table for future extensibility
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT,
-            event_date DATE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT TRUE
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
+    """Initialize database with error handling"""
+    try:
+        print("🔧 Initializing database...")
+        conn = sqlite3.connect('student_event.db')
+        cursor = conn.cursor()
+
+        # Students table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                prn_number TEXT UNIQUE NOT NULL,
+                email TEXT NOT NULL,
+                qr_code_path TEXT,
+                qr_hash TEXT UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                email_sent BOOLEAN DEFAULT FALSE
+            )
+        ''')
+
+        # Scans table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER,
+                scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scanner_info TEXT,
+                FOREIGN KEY (student_id) REFERENCES students (id)
+            )
+        ''')
+
+        # Events table for future extensibility
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                event_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+        print("✅ Database initialized successfully")
+        return True
+
+    except Exception as e:
+        print(f"❌ Database initialization failed: {str(e)}")
+        return False
 
 # Initialize database on startup
 init_db()
@@ -506,9 +515,22 @@ def validate_qr():
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Simple health check endpoint for Railway"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Student Event Management System',
+        'event': 'Cognizant Pre-Placement Talk - Batch 2026',
+        'timestamp': get_ist_time().strftime('%Y-%m-%d %H:%M:%S IST')
+    })
+
 @app.route('/api/dashboard_stats', methods=['GET'])
 def dashboard_stats():
     try:
+        # Initialize database if it doesn't exist
+        init_db()
+
         conn = sqlite3.connect('student_event.db')
         cursor = conn.cursor()
 

@@ -6,7 +6,14 @@ echo "🚀 Starting Cognizant Pre-Placement Talk System..."
 
 # Initialize database
 echo "📊 Initializing database..."
-python -c "from app import init_db; init_db()"
+python -c "
+from app import init_db
+import sys
+if not init_db():
+    print('❌ Database initialization failed')
+    sys.exit(1)
+print('✅ Database ready')
+"
 
 # Create necessary directories
 echo "📁 Creating directories..."
