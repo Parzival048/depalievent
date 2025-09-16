@@ -350,8 +350,10 @@ def send_emails():
         email_address = os.getenv('EMAIL_ADDRESS')
         email_password = os.getenv('EMAIL_PASSWORD')
 
+        print(f"Email config - Server: {smtp_server}, Port: {smtp_port}, Email: {email_address}")
+
         if not email_address or not email_password:
-            return jsonify({'error': 'Email configuration not found. Please check .env file'}), 400
+            return jsonify({'error': 'Email configuration not found. Please check environment variables'}), 400
 
         conn = sqlite3.connect('student_event.db')
         cursor = conn.cursor()
@@ -364,16 +366,29 @@ def send_emails():
         ''')
         students = cursor.fetchall()
 
+        print(f"Found {len(students)} students to send emails to")
+
         if not students:
-            return jsonify({'message': 'No students found to send emails to'}), 200
+            return jsonify({'message': 'No students found to send emails to. Make sure QR codes are generated first.'}), 200
 
         sent_count = 0
         failed_count = 0
+        server = None
 
-        # Setup SMTP
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(email_address, email_password)
+        try:
+            # Setup SMTP with better error handling
+            print(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            print("STARTTLS successful")
+            server.login(email_address, email_password)
+            print("SMTP login successful")
+        except smtplib.SMTPAuthenticationError as e:
+            return jsonify({'error': f'Email authentication failed. Please check your email credentials. Error: {str(e)}'}), 400
+        except smtplib.SMTPConnectError as e:
+            return jsonify({'error': f'Failed to connect to email server. Error: {str(e)}'}), 400
+        except Exception as e:
+            return jsonify({'error': f'Email server setup failed: {str(e)}'}), 400
 
         event_name = os.getenv('EVENT_NAME', 'Student Event')
         event_date = os.getenv('EVENT_DATE', 'TBD')
@@ -381,6 +396,14 @@ def send_emails():
 
         for student_id, name, prn_number, email, qr_path in students:
             try:
+                print(f"Sending email to {email} (PRN: {prn_number})")
+
+                # Check if QR code file exists
+                if not os.path.exists(qr_path):
+                    print(f"QR code file not found: {qr_path}")
+                    failed_count += 1
+                    continue
+
                 # Create email message
                 msg = MIMEMultipart()
                 msg['From'] = email_address
@@ -435,14 +458,20 @@ Event Management Team
                 msg.attach(MIMEText(body, 'plain'))
 
                 # Attach QR code image
-                with open(qr_path, 'rb') as f:
-                    img_data = f.read()
-                    image = MIMEImage(img_data)
-                    image.add_header('Content-Disposition', f'attachment; filename="qr_code_{prn_number}.png"')
-                    msg.attach(image)
+                try:
+                    with open(qr_path, 'rb') as f:
+                        img_data = f.read()
+                        image = MIMEImage(img_data)
+                        image.add_header('Content-Disposition', f'attachment; filename="qr_code_{prn_number}.png"')
+                        msg.attach(image)
+                except Exception as e:
+                    print(f"Failed to attach QR code for {email}: {str(e)}")
+                    failed_count += 1
+                    continue
 
                 # Send email
                 server.send_message(msg)
+                print(f"Email sent successfully to {email}")
 
                 # Update database
                 cursor.execute('UPDATE students SET email_sent = TRUE WHERE id = ?', (student_id,))
@@ -452,16 +481,91 @@ Event Management Team
                 print(f"Failed to send email to {email}: {str(e)}")
                 failed_count += 1
 
-        server.quit()
+        # Clean up
+        if server:
+            try:
+                server.quit()
+            except:
+                pass
+
         conn.commit()
         conn.close()
 
         return jsonify({
             'success': True,
-            'message': f'Sent emails to {sent_count} students. {failed_count} failed.',
+            'message': f'Email sending completed. Sent: {sent_count}, Failed: {failed_count}',
             'sent': sent_count,
-            'failed': failed_count
+            'failed': failed_count,
+            'total': len(students)
         })
+
+    except Exception as e:
+        print(f"Email sending error: {str(e)}")
+        # Make sure to clean up connections
+        if 'server' in locals() and server:
+            try:
+                server.quit()
+            except:
+                pass
+        if 'conn' in locals():
+            try:
+                conn.close()
+            except:
+                pass
+        return jsonify({'error': f'Email sending failed: {str(e)}'}), 500
+
+@app.route('/api/test_email_config', methods=['GET'])
+@api_admin_required
+def test_email_config():
+    """Test email configuration without sending emails"""
+    try:
+        # Email configuration from environment
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', 587))
+        email_address = os.getenv('EMAIL_ADDRESS')
+        email_password = os.getenv('EMAIL_PASSWORD')
+
+        if not email_address or not email_password:
+            return jsonify({
+                'success': False,
+                'error': 'Email configuration missing',
+                'details': 'EMAIL_ADDRESS or EMAIL_PASSWORD not set in environment variables'
+            }), 400
+
+        # Test SMTP connection
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(email_address, email_password)
+            server.quit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Email configuration is working correctly',
+                'config': {
+                    'smtp_server': smtp_server,
+                    'smtp_port': smtp_port,
+                    'email_address': email_address
+                }
+            })
+        except smtplib.SMTPAuthenticationError:
+            return jsonify({
+                'success': False,
+                'error': 'Email authentication failed',
+                'details': 'Invalid email address or password'
+            }), 400
+        except smtplib.SMTPConnectError:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot connect to email server',
+                'details': f'Failed to connect to {smtp_server}:{smtp_port}'
+            }), 400
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': 'Email configuration test failed',
+                'details': str(e)
+            }), 400
 
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500

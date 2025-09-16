@@ -78,9 +78,14 @@
                     <i class="fas fa-exclamation-triangle me-1"></i>
                     Make sure to configure email settings in .env file first!
                 </div>
-                <button type="button" class="btn btn-info" id="sendEmailsBtn">
-                    <i class="fas fa-envelope me-1"></i>Send Emails
-                </button>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-info" id="testEmailBtn">
+                        <i class="fas fa-check-circle me-1"></i>Test Email Configuration
+                    </button>
+                    <button type="button" class="btn btn-info" id="sendEmailsBtn">
+                        <i class="fas fa-envelope me-1"></i>Send Emails
+                    </button>
+                </div>
                 <div id="emailProgress" class="mt-3" style="display: none;">
                     <div class="progress">
                         <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" style="width: 100%"></div>

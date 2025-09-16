@@ -78,10 +78,34 @@ function initializeAdminPanel() {
         }
     });
     
+    // Test email configuration button
+    const testEmailBtn = document.getElementById('testEmailBtn');
+
+    testEmailBtn.addEventListener('click', async function() {
+        try {
+            EventManager.setLoadingState(testEmailBtn, true);
+
+            const response = await EventManager.apiRequest('/api/test_email_config', {
+                method: 'GET'
+            });
+
+            if (response.success) {
+                EventManager.showToast('✅ Email configuration is working correctly!', 'success');
+            } else {
+                EventManager.showToast(`❌ Email configuration error: ${response.error}`, 'error');
+            }
+
+        } catch (error) {
+            EventManager.showToast(`❌ Email test failed: ${error.message}`, 'error');
+        } finally {
+            EventManager.setLoadingState(testEmailBtn, false);
+        }
+    });
+
     // Send emails button
     const sendEmailsBtn = document.getElementById('sendEmailsBtn');
     const emailProgress = document.getElementById('emailProgress');
-    
+
     sendEmailsBtn.addEventListener('click', async function() {
         // Show confirmation dialog
         if (!confirm('Are you sure you want to send emails to all students? This action cannot be undone.')) {
