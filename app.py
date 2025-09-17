@@ -400,15 +400,19 @@ def generate_qr_codes():
 
             # Create QR code with a URL that includes the hash
             # This makes it more user-friendly when scanned with external apps
-            # Get base URL for QR codes - prioritize Render environment
-            base_url = os.environ.get('RENDER_EXTERNAL_URL')
+            # Get base URL for QR codes - prioritize external URLs
+            base_url = os.environ.get('EXTERNAL_URL') or os.environ.get('RENDER_EXTERNAL_URL')
 
             if not base_url:
-                # Try to detect Render environment
+                # Try to detect different hosting environments
                 if 'RENDER' in os.environ:
                     # On Render, try to construct URL from service name
                     service_name = os.environ.get('RENDER_SERVICE_NAME', 'depalievent')
                     base_url = f"{service_name}.onrender.com"
+                elif 'PTERODACTYL' in os.environ or os.environ.get('SERVER_PORT'):
+                    # Pterodactyl environment - use configured external URL
+                    pterodactyl_url = os.environ.get('PTERODACTYL_URL', 'ryzen9.darknetwork.fun:25575')
+                    base_url = pterodactyl_url
                 else:
                     # For local development, use the network IP address
                     try:
@@ -1378,7 +1382,12 @@ def clear_all_data():
 
 if __name__ == '__main__':
     init_db()
-    # Use PORT environment variable for Railway deployment, fallback to 5000 for local
-    port = int(os.environ.get('PORT', 5000))
+    # Use PORT environment variable, with different defaults for different platforms
+    if os.environ.get('EXTERNAL_URL') and 'darknetwork.fun:25575' in os.environ.get('EXTERNAL_URL', ''):
+        # Pterodactyl environment
+        port = int(os.environ.get('PORT', 25575))
+    else:
+        # Railway/Render or local development
+        port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_ENV') != 'production'
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
