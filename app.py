@@ -351,8 +351,11 @@ def generate_qr_codes():
 
             # Create QR code with a URL that includes the hash
             # This makes it more user-friendly when scanned with external apps
-            base_url = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'localhost:5000')
-            protocol = 'https' if 'railway.app' in base_url else 'http'
+            base_url = os.environ.get('RENDER_EXTERNAL_URL', 'depalievent.onrender.com')
+            # Remove protocol if present in environment variable
+            if base_url.startswith('http://') or base_url.startswith('https://'):
+                base_url = base_url.split('://', 1)[1]
+            protocol = 'https' if 'onrender.com' in base_url or 'railway.app' in base_url else 'http'
             qr_url = f"{protocol}://{base_url}/validate/{qr_hash}"
 
             # Create QR code

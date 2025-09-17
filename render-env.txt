@@ -1,0 +1,38 @@
+# Render Environment Variables Configuration
+# Copy these variables to Render Dashboard > Environment Variables
+
+# Email Configuration
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+EMAIL_ADDRESS=deepalirakshe24@gmail.com
+EMAIL_PASSWORD=fjaygniasvajhqsb
+
+# Security
+SECRET_KEY=your-production-secret-key-here-change-this
+ADMIN_PASSWORD=admin123
+
+# Event Configuration
+EVENT_NAME=Cognizant Pre-Placement Talk - Batch 2026
+EVENT_DATE=18th September 2025
+EVENT_LOCATION=Main Auditorium
+
+# Flask Configuration
+FLASK_ENV=production
+FLASK_APP=app.py
+
+# Render Configuration
+RENDER_EXTERNAL_URL=depalievent.onrender.com
+
+# Instructions:
+# 1. Go to Render Dashboard
+# 2. Select your web service
+# 3. Go to Environment tab
+# 4. Add each variable:
+#    - Key: SMTP_SERVER
+#    - Value: smtp.gmail.com
+#    - Click "Add Environment Variable"
+# 5. Repeat for all variables above
+# 6. Deploy the service after adding all variables
+
+# Note: RENDER_EXTERNAL_URL should be set to your actual Render domain
+# Replace 'depalievent.onrender.com' with your actual service URL if different

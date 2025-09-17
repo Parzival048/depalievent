@@ -104,7 +104,7 @@ After each successful scan:
 ### Sample QR Code for Testing:
 - **Student**: John Smith
 - **PRN**: PRN001
-- **QR URL**: `http://localhost:5000/validate/42f22478e3e03c076e32fbc705b9d7af5a48d181f3e2194430f6ee7572c16725`
+- **QR URL**: `https://depalievent.onrender.com/validate/42f22478e3e03c076e32fbc705b9d7af5a48d181f3e2194430f6ee7572c16725`
 
 ### Test Steps:
 1. **Scan with Google Lens** ✅
