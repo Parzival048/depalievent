@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: depalievent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SMTP_SERVER
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 465
+      - key: EMAIL_ADDRESS
+        value: deepalirakshe24@gmail.com
+      - key: EMAIL_PASSWORD
+        value: fjaygniasvajhqsb
+      - key: FROM_EMAIL
+        value: pc.deepalirakshe@greenalley.in
+      - key: FROM_NAME
+        value: Event Management Team
+      - key: MAILTRAP_API_KEY
+        value: e3e531238d443cc8ead402c4fe395a5f
+      - key: SECRET_KEY
+        value: your-production-secret-key-change-this
+      - key: ADMIN_PASSWORD
+        value: admin123
+      - key: EVENT_NAME
+        value: Cognizant Pre-Placement Talk - Batch 2026
+      - key: EVENT_DATE
+        value: 18th September 2025
+      - key: EVENT_LOCATION
+        value: Main Auditorium
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: app.py

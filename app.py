@@ -400,17 +400,24 @@ def generate_qr_codes():
 
             # Create QR code with a URL that includes the hash
             # This makes it more user-friendly when scanned with external apps
+            # Get base URL for QR codes - prioritize Render environment
             base_url = os.environ.get('RENDER_EXTERNAL_URL')
 
             if not base_url:
-                # For local development, use the network IP address
-                try:
-                    import socket
-                    hostname = socket.gethostname()
-                    local_ip = socket.gethostbyname(hostname)
-                    base_url = f"{local_ip}:5000"
-                except:
-                    base_url = "192.168.56.1:5000"  # Fallback to detected IP
+                # Try to detect Render environment
+                if 'RENDER' in os.environ:
+                    # On Render, try to construct URL from service name
+                    service_name = os.environ.get('RENDER_SERVICE_NAME', 'depalievent')
+                    base_url = f"{service_name}.onrender.com"
+                else:
+                    # For local development, use the network IP address
+                    try:
+                        import socket
+                        hostname = socket.gethostname()
+                        local_ip = socket.gethostbyname(hostname)
+                        base_url = f"{local_ip}:5000"
+                    except:
+                        base_url = "192.168.1.34:5000"  # Fallback to Flask IP
 
             # Remove protocol if present in environment variable
             if base_url.startswith('http://') or base_url.startswith('https://'):
