@@ -28,6 +28,13 @@ try:
 except ImportError:
     SENDGRID_AVAILABLE = False
 
+# Try to import Mailtrap (optional)
+try:
+    import mailtrap as mt
+    MAILTRAP_AVAILABLE = True
+except ImportError:
+    MAILTRAP_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
@@ -96,6 +103,48 @@ def send_email_sendgrid(to_email, subject, body, attachment_path=None, attachmen
         response = sg.send(message)
 
         return True, f"Email sent successfully (Status: {response.status_code})"
+
+    except Exception as e:
+        return False, str(e)
+
+def send_email_mailtrap(to_email, subject, body, attachment_path=None, attachment_name=None):
+    """Send email using Mailtrap API"""
+    try:
+        mailtrap_api_key = os.getenv('MAILTRAP_API_KEY')
+        from_email = os.getenv('FROM_EMAIL', 'hello@demomailtrap.co')
+        from_name = os.getenv('FROM_NAME', 'Event Management Team')
+
+        if not mailtrap_api_key:
+            raise Exception("Mailtrap API key not configured")
+
+        # Create the mail object
+        mail = mt.Mail(
+            sender=mt.Address(email=from_email, name=from_name),
+            to=[mt.Address(email=to_email)],
+            subject=subject,
+            text=body,
+            html=body.replace('\n', '<br>'),
+            category="Event QR Code"
+        )
+
+        # Add attachment if provided
+        if attachment_path and os.path.exists(attachment_path):
+            with open(attachment_path, 'rb') as f:
+                attachment_data = f.read()
+
+                attachment = mt.Attachment(
+                    content=base64.b64encode(attachment_data),
+                    filename=attachment_name or 'qr_code.png',
+                    mimetype='image/png',
+                    disposition=mt.Disposition.ATTACHMENT
+                )
+                mail.attachments = [attachment]
+
+        # Send the email
+        client = mt.MailtrapClient(token=mailtrap_api_key)
+        response = client.send(mail)
+
+        return True, f"Email sent successfully via Mailtrap"
 
     except Exception as e:
         return False, str(e)
@@ -351,7 +400,18 @@ def generate_qr_codes():
 
             # Create QR code with a URL that includes the hash
             # This makes it more user-friendly when scanned with external apps
-            base_url = os.environ.get('RENDER_EXTERNAL_URL', 'depalievent.onrender.com')
+            base_url = os.environ.get('RENDER_EXTERNAL_URL')
+
+            if not base_url:
+                # For local development, use the network IP address
+                try:
+                    import socket
+                    hostname = socket.gethostname()
+                    local_ip = socket.gethostbyname(hostname)
+                    base_url = f"{local_ip}:5000"
+                except:
+                    base_url = "192.168.56.1:5000"  # Fallback to detected IP
+
             # Remove protocol if present in environment variable
             if base_url.startswith('http://') or base_url.startswith('https://'):
                 base_url = base_url.split('://', 1)[1]
@@ -394,15 +454,47 @@ def generate_qr_codes():
 @api_admin_required
 def send_emails():
     try:
-        # Check if SendGrid is available and configured
+        # Check available email services
+        use_smtp = os.getenv('EMAIL_ADDRESS') and os.getenv('EMAIL_PASSWORD')
+        use_mailtrap = MAILTRAP_AVAILABLE and os.getenv('MAILTRAP_API_KEY')
         use_sendgrid = SENDGRID_AVAILABLE and os.getenv('SENDGRID_API_KEY')
 
-        if use_sendgrid:
+        # Priority: SMTP (for Render) -> Mailtrap -> SendGrid
+        if use_smtp:
+            print("Using Google SMTP for email sending (Render compatible)")
+            try:
+                return send_emails_smtp()
+            except Exception as smtp_error:
+                print(f"SMTP failed: {str(smtp_error)}, falling back to Mailtrap")
+                if use_mailtrap:
+                    return send_emails_mailtrap()
+                elif use_sendgrid:
+                    return send_emails_sendgrid()
+                else:
+                    raise smtp_error
+        elif use_mailtrap:
+            print("Using Mailtrap for email sending")
+            try:
+                result = send_emails_mailtrap()
+                # Check if Mailtrap failed due to recipient restrictions
+                if result[1] == 500:  # If Mailtrap failed
+                    result_data = result[0].get_json()
+                    if 'Demo domains can only be used' in result_data.get('error', ''):
+                        print("Mailtrap failed due to demo domain restrictions, falling back to SendGrid")
+                        if use_sendgrid:
+                            return send_emails_sendgrid()
+                return result
+            except Exception as mailtrap_error:
+                print(f"Mailtrap failed: {str(mailtrap_error)}, falling back to SendGrid")
+                if use_sendgrid:
+                    return send_emails_sendgrid()
+                else:
+                    raise mailtrap_error
+        elif use_sendgrid:
             print("Using SendGrid for email sending")
             return send_emails_sendgrid()
         else:
-            print("Using SMTP for email sending")
-            return send_emails_smtp()
+            return jsonify({'error': 'No email service configured. Please set up SMTP, Mailtrap, or SendGrid credentials.'}), 400
 
     except Exception as e:
         print(f"Email sending error: {str(e)}")
@@ -530,6 +622,128 @@ Event Management Team
                 pass
         return jsonify({'error': f'SendGrid email sending failed: {str(e)}'}), 500
 
+def send_emails_mailtrap():
+    """Send emails using Mailtrap API"""
+    try:
+        conn = sqlite3.connect('student_event.db')
+        cursor = conn.cursor()
+
+        # Get students with QR codes but emails not sent
+        cursor.execute('''
+            SELECT id, name, prn_number, email, qr_code_path
+            FROM students
+            WHERE qr_code_path IS NOT NULL AND email_sent = FALSE
+        ''')
+        students = cursor.fetchall()
+
+        print(f"Found {len(students)} students to send emails to")
+
+        if not students:
+            return jsonify({'message': 'No students found to send emails to. Make sure QR codes are generated first.'}), 200
+
+        sent_count = 0
+        failed_count = 0
+
+        event_name = os.getenv('EVENT_NAME', 'Student Event')
+        event_date = os.getenv('EVENT_DATE', 'TBD')
+        event_location = os.getenv('EVENT_LOCATION', 'TBD')
+
+        for student_id, name, prn_number, email, qr_path in students:
+            try:
+                print(f"Sending email to {email} (PRN: {prn_number})")
+
+                # Check if QR code file exists
+                if not os.path.exists(qr_path):
+                    print(f"QR code file not found: {qr_path}")
+                    failed_count += 1
+                    continue
+
+                # Email body
+                body = f"""
+Dear {name},
+
+Welcome to {event_name}!
+
+Your unique QR code is attached to this email. Please follow these instructions carefully:
+
+🎫 QR CODE INSTRUCTIONS:
+1. Save the QR code image to your phone
+2. Present the QR code at the event entrance for scanning
+3. Each QR code can only be used ONCE - please do not share it
+4. Keep your phone charged and QR code easily accessible
+
+📅 EVENT DETAILS:
+- Event: {event_name}
+- Date: {event_date}
+- Location: {event_location}
+- Your PRN: {prn_number}
+
+👔 DRESS CODE - MANDATORY:
+- Formals with blazers are COMPULSORY
+- Professional business attire required
+- No casual wear will be permitted
+
+🆔 ENTRY REQUIREMENTS:
+- College ID card is MANDATORY for entry
+- QR code must be presented along with ID card
+- Both documents will be verified at the entrance
+
+⏰ IMPORTANT GUIDELINES:
+- Arrive 15 minutes before the event starts
+- Entry may be denied without proper dress code
+- Keep your QR code and ID card ready for quick verification
+- Late arrivals may not be permitted entry
+- Contact support if you have any issues
+
+This is a professional corporate event. Please ensure you follow all guidelines for a smooth entry process.
+
+We look forward to seeing you at the event!
+
+Best regards,
+Event Management Team
+                """
+
+                # Send email using Mailtrap
+                success, message = send_email_mailtrap(
+                    email,
+                    f'Your QR Code for {event_name}',
+                    body,
+                    qr_path,
+                    f"qr_code_{prn_number}.png"
+                )
+
+                if success:
+                    print(f"Email sent successfully to {email}")
+                    cursor.execute('UPDATE students SET email_sent = TRUE WHERE id = ?', (student_id,))
+                    sent_count += 1
+                else:
+                    print(f"Failed to send email to {email}: {message}")
+                    failed_count += 1
+
+            except Exception as e:
+                print(f"Failed to send email to {email}: {str(e)}")
+                failed_count += 1
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'Email sending completed using Mailtrap. Sent: {sent_count}, Failed: {failed_count}',
+            'sent': sent_count,
+            'failed': failed_count,
+            'total': len(students)
+        })
+
+    except Exception as e:
+        print(f"Mailtrap email sending error: {str(e)}")
+        if 'conn' in locals():
+            try:
+                conn.close()
+            except:
+                pass
+        return jsonify({'error': f'Mailtrap email sending failed: {str(e)}'}), 500
+
 def send_emails_smtp():
     """Send emails using SMTP (original method)"""
     try:
@@ -565,15 +779,50 @@ def send_emails_smtp():
         server = None
 
         try:
-            # Setup SMTP with timeout and better error handling
+            # Setup SMTP with multiple port fallbacks for Render compatibility
             print(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
 
-            # Set a shorter timeout to prevent worker timeouts
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-            server.starttls()
-            print("STARTTLS successful")
-            server.login(email_address, email_password)
-            print("SMTP login successful")
+            # Try multiple SMTP configurations for Render compatibility
+            smtp_configs = [
+                (smtp_server, smtp_port),  # Primary config (587)
+                ('smtp.gmail.com', 465),   # Gmail SSL
+                ('smtp.gmail.com', 25),    # Alternative port
+            ]
+
+            server = None
+            last_error = None
+
+            for server_host, port in smtp_configs:
+                try:
+                    print(f"Trying SMTP connection: {server_host}:{port}")
+
+                    if port == 465:
+                        # Use SMTP_SSL for port 465
+                        server = smtplib.SMTP_SSL(server_host, port, timeout=15)
+                        print(f"SMTP_SSL connection established on port {port}")
+                    else:
+                        # Use regular SMTP with STARTTLS for other ports
+                        server = smtplib.SMTP(server_host, port, timeout=15)
+                        server.starttls()
+                        print(f"STARTTLS successful on port {port}")
+
+                    server.login(email_address, email_password)
+                    print(f"SMTP login successful on {server_host}:{port}")
+                    break  # Success, exit the loop
+
+                except Exception as e:
+                    last_error = e
+                    print(f"Failed to connect to {server_host}:{port} - {str(e)}")
+                    if server:
+                        try:
+                            server.quit()
+                        except:
+                            pass
+                        server = None
+                    continue
+
+            if not server:
+                raise last_error or Exception("All SMTP connection attempts failed")
         except smtplib.SMTPAuthenticationError as e:
             return jsonify({'error': f'Email authentication failed. Please check your email credentials. Error: {str(e)}'}), 400
         except smtplib.SMTPConnectError as e:
@@ -712,16 +961,63 @@ Event Management Team
 def test_email_config():
     """Test email configuration without sending emails"""
     try:
-        # Check if SendGrid is available and configured
+        # Check if Mailtrap is available and configured (prioritize Mailtrap)
+        use_mailtrap = MAILTRAP_AVAILABLE and os.getenv('MAILTRAP_API_KEY')
+        # Check if SendGrid is available and configured (fallback)
         use_sendgrid = SENDGRID_AVAILABLE and os.getenv('SENDGRID_API_KEY')
 
-        if use_sendgrid:
+        if use_mailtrap:
+            return test_mailtrap_config()
+        elif use_sendgrid:
             return test_sendgrid_config()
         else:
             return test_smtp_config()
 
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+def test_mailtrap_config():
+    """Test Mailtrap configuration"""
+    try:
+        mailtrap_api_key = os.getenv('MAILTRAP_API_KEY')
+        from_email = os.getenv('FROM_EMAIL', 'hello@demomailtrap.co')
+        from_name = os.getenv('FROM_NAME', 'Event Management Team')
+
+        if not mailtrap_api_key:
+            return jsonify({
+                'success': False,
+                'error': 'Mailtrap API key not configured',
+                'details': 'MAILTRAP_API_KEY not set in environment variables'
+            }), 400
+
+        # Test Mailtrap API key validity by creating a client
+        try:
+            client = mt.MailtrapClient(token=mailtrap_api_key)
+            # The client creation itself validates the token format
+
+            return jsonify({
+                'success': True,
+                'message': 'Mailtrap configuration is working correctly!',
+                'method': 'Mailtrap API',
+                'config': {
+                    'from_email': from_email,
+                    'from_name': from_name,
+                    'api_key_status': 'Valid'
+                }
+            })
+        except Exception as client_error:
+            return jsonify({
+                'success': False,
+                'error': 'Mailtrap API key validation failed',
+                'details': f'Error: {str(client_error)}. Please check your MAILTRAP_API_KEY.'
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Mailtrap configuration test failed',
+            'details': f'Error: {str(e)}. Please check your MAILTRAP_API_KEY and FROM_EMAIL settings.'
+        }), 400
 
 def test_sendgrid_config():
     """Test SendGrid configuration"""

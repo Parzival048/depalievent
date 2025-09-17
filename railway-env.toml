@@ -1,7 +1,12 @@
 # Railway Environment Variables Configuration
 # Copy and paste this into Railway's Secrets section
 
-# Email Configuration
+# Email Configuration - Mailtrap (Recommended)
+MAILTRAP_API_KEY = "e3e531238d443cc8ead402c4fe395a5f"
+FROM_EMAIL = "noreply@greenalley.in"
+FROM_NAME = "Event Management Team"
+
+# Email Configuration - SMTP (Fallback)
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = "587"
 EMAIL_ADDRESS = "deepalirakshe24@gmail.com"

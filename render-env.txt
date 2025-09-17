@@ -1,9 +1,14 @@
 # Render Environment Variables Configuration
 # Copy these variables to Render Dashboard > Environment Variables
 
-# Email Configuration
+# Email Configuration - Mailtrap (Primary)
+MAILTRAP_API_KEY=e3e531238d443cc8ead402c4fe395a5f
+FROM_EMAIL=pc.deepalirakshe@greenalley.in
+FROM_NAME=Event Management Team
+
+# Email Configuration - Google SMTP (Render Compatible)
 SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
+SMTP_PORT=465
 EMAIL_ADDRESS=deepalirakshe24@gmail.com
 EMAIL_PASSWORD=fjaygniasvajhqsb
 
